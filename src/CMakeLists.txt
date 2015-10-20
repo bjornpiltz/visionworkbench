@@ -1,0 +1,244 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+PROJECT(VW C CXX)
+
+SET(EXCLUDE_PATTERNS TIF HDF EXR OpenCV TemporaryFile.cc)
+
+SET(CMAKE_DEBUG_POSTFIX d)
+
+OPTION(WITH_TESTS "Build and run tests" OFF)
+
+FIND_PACKAGE(Boost) 
+LINK_DIRECTORIES("${Boost_LIB_DIR}")
+INCLUDE_DIRECTORIES("${Boost_INCLUDE_DIR}")
+
+FIND_PACKAGE(LAPACK)
+
+FIND_PACKAGE(flann) 
+INCLUDE_DIRECTORIES("${FLANN_INCLUDE_DIR}")
+	
+FIND_PACKAGE(png) 
+IF(PNG_FOUND)
+	SET(VW_HAVE_PKG_PNG ON)
+	INCLUDE_DIRECTORIES("${ZLIB_INCLUDE_DIR}" "${PNG_PNG_INCLUDE_DIR}")
+ELSE()
+	MESSAGE("Building without PNG support.")
+    LIST(APPEND EXCLUDE_PATTERNS PNG Png)
+ENDIF()
+
+FIND_PACKAGE(jpeg) 
+IF(JPEG_FOUND)
+	SET(VW_HAVE_PKG_JPEG ON)
+	INCLUDE_DIRECTORIES("${JPEG_INCLUDE_DIR}")
+ELSE()
+	MESSAGE("Building without jpeg support.")
+    LIST(APPEND EXCLUDE_PATTERNS JPEG Jpeg)
+ENDIF()
+
+FIND_PACKAGE(gdal) 
+IF(GDAL_FOUND)
+	SET(VW_HAVE_PKG_GDAL ON)
+	INCLUDE_DIRECTORIES("${GDAL_INCLUDE_DIR}")
+ELSE()
+	MESSAGE("Building without gdal support.")
+    LIST(APPEND EXCLUDE_PATTERNS GDAL Gdal)
+ENDIF()
+
+FIND_PACKAGE(PROJ4) 
+IF(PROJ4_FOUND)
+	SET(VW_HAVE_PKG_CARTOGRAPHY ON)
+	INCLUDE_DIRECTORIES("${PROJ4_INCLUDE_DIR}")
+ELSE()
+	SET(VW_HAVE_PKG_CARTOGRAPHY OFF)
+	MESSAGE("Building without proj.4 support. Excluding module cartography.")
+ENDIF()
+
+SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
+        
+IF(MSVC)
+    # Enable Multi Processor Compilation
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+    ADD_DEFINITIONS(-D_USE_MATH_DEFINES=1)
+    ADD_DEFINITIONS(-DBOOST_RESULT_OF_USE_TR1) #http://stackoverflow.com/questions/25621676/boostfusioninvoke-compiler-error-with-visual-studio-2013
+ENDIF()
+
+
+INCLUDE_DIRECTORIES(
+    "${CMAKE_CURRENT_SOURCE_DIR}" 
+    "${CMAKE_CURRENT_BINARY_DIR}"
+    )
+	
+IF(WITH_TESTS)    
+	ENABLE_TESTING() 
+	INCLUDE_DIRECTORIES(
+		"${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/gtest/include"
+		)
+
+	ADD_LIBRARY(gtest STATIC 
+		"${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/gtest/src/gtest-all.cc" 
+		"${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/gtest/src/gtest_main.cc"
+		)
+	ADD_DEFINITIONS(-DTEST_OBJDIR="${CMAKE_CURRENT_BINARY_DIR}")
+ENDIF()
+CONFIGURE_FILE(config.h.in "${PROJECT_BINARY_DIR}/vw/config.h")
+
+
+MACRO(FILTER LIST)
+    SET(FILTERED_LIST)
+    FOREACH(ENTRY ${${LIST}})
+        SET(EXCLUDE_FILE OFF)
+        FOREACH(EXCLUDE_PATTERN ${EXCLUDE_PATTERNS})
+            IF(ENTRY MATCHES  ${EXCLUDE_PATTERN})
+                SET(EXCLUDE_FILE ON)
+            ENDIF()
+        ENDFOREACH()
+
+        IF(NOT EXCLUDE_FILE)
+            LIST(APPEND FILTERED_LIST ${ENTRY} )
+        ENDIF()
+    ENDFOREACH()
+    SET(${LIST} ${FILTERED_LIST})
+ENDMACRO()
+
+MACRO(ADD_MODULE MODULE_NAME)
+
+    FILE(GLOB ${MODULE_NAME}_CXX RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/" "vw/${MODULE_NAME}/*.cc")
+    FILTER(${MODULE_NAME}_CXX)
+    FILE(GLOB ${MODULE_NAME}_H RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/" "vw/${MODULE_NAME}/*.h")
+    ADD_LIBRARY(vw_${MODULE_NAME} ${${MODULE_NAME}_CXX} ${${MODULE_NAME}_H})
+    
+    IF(${ARGC} GREATER 1)
+        TARGET_LINK_LIBRARIES(vw_${MODULE_NAME} ${ARGN})
+    ENDIF(${ARGC} GREATER 1)
+
+	IF(WITH_TESTS)    
+		FILE(GLOB ${MODULE_NAME}_TEST_CXX RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/" "vw/${MODULE_NAME}/tests/*.cxx")
+
+		FOREACH(TEST_CXX ${${MODULE_NAME}_TEST_CXX})
+			GET_FILENAME_COMPONENT(TEST_NAME ${TEST_CXX} NAME_WE)
+
+			ADD_EXECUTABLE(vw_${MODULE_NAME}_${TEST_NAME} ${TEST_CXX} "${CMAKE_CURRENT_SOURCE_DIR}/test/test_main.cc")
+            SET_TARGET_PROPERTIES(vw_${MODULE_NAME}_${TEST_NAME} PROPERTIES COMPILE_DEFINITIONS TEST_SRCDIR="${CMAKE_CURRENT_SOURCE_DIR}/vw/${MODULE_NAME}/tests")
+
+			TARGET_LINK_LIBRARIES(vw_${MODULE_NAME}_${TEST_NAME} vw_${MODULE_NAME} gtest)
+			ADD_TEST(vw_${MODULE_NAME}_${TEST_NAME} vw_${MODULE_NAME}_${TEST_NAME} WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/vw/${MODULE_NAME}/tests")
+			SET_TARGET_PROPERTIES(vw_${MODULE_NAME}_${TEST_NAME} PROPERTIES FOLDER "Tests")
+		ENDFOREACH()
+	ENDIF()
+    
+    INSTALL(DIRECTORY "vw/${MODULE_NAME}/" DESTINATION include/vw/${MODULE_NAME} FILES_MATCHING PATTERN "*.h")
+    INSTALL(DIRECTORY "vw/${MODULE_NAME}/" DESTINATION src/vw/${MODULE_NAME} FILES_MATCHING PATTERN "*.cc")
+    INSTALL(TARGETS vw_${MODULE_NAME} DESTINATION lib)
+
+ENDMACRO()
+
+INSTALL(DIRECTORY "vw/" DESTINATION include/vw FILES_MATCHING PATTERN "*.h")
+INSTALL(FILES "${PROJECT_BINARY_DIR}/vw/config.h" DESTINATION include/vw)
+
+# Core
+ADD_MODULE(Core)
+
+# Math
+ADD_MODULE(Math vw_Core)
+TARGET_LINK_LIBRARIES(vw_Math ${BLAS_blas_LIBRARY} ${LAPACK_lapack_LIBRARY})
+
+# Camera
+ADD_MODULE(Camera vw_Math)
+
+# Image
+ADD_MODULE(Image vw_Math)
+
+# FileIO
+ADD_MODULE(FileIO vw_Image)
+
+IF(VW_HAVE_PKG_PNG)
+    TARGET_LINK_LIBRARIES(vw_FileIO ${ZLIB_LIBRARY})
+    TARGET_LINK_LIBRARIES(vw_FileIO debug;${PNG_LIBRARY_DEBUG};optimized;${PNG_LIBRARY_RELEASE})
+ENDIF()
+
+IF(VW_HAVE_PKG_JPEG)
+    TARGET_LINK_LIBRARIES(vw_FileIO "${JPEG_LIBRARY}")
+ENDIF()
+
+IF(VW_HAVE_PKG_GDAL)
+    TARGET_LINK_LIBRARIES(vw_FileIO ${GDAL_LIBRARY})
+ENDIF()
+
+ADD_MODULE(HDR vw_Image)
+
+# InterestPoint
+ADD_MODULE(InterestPoint vw_FileIO)
+
+# Stereo
+ADD_MODULE(Stereo vw_FileIO vw_Camera)
+#TARGET_LINK_LIBRARIES(vw_FileIO vw_Camera)
+
+# Mosaic
+ADD_MODULE(Mosaic vw_FileIO)
+
+# Cartography
+IF(VW_HAVE_PKG_CARTOGRAPHY)
+	ADD_MODULE(Cartography vw_FileIO)
+    TARGET_LINK_LIBRARIES(vw_FileIO ${PROJ4_LIBRARIES})
+ENDIF()
+
+#Tools:
+MACRO(ADD_TOOL TOOL_NAME)
+    ADD_EXECUTABLE(${TOOL_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/vw/tools/${TOOL_NAME}.cc"
+                                    "${CMAKE_CURRENT_SOURCE_DIR}/vw/tools/Common.cc")
+    SET_TARGET_PROPERTIES(${TOOL_NAME} PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
+	SET_TARGET_PROPERTIES(${TOOL_NAME} PROPERTIES FOLDER "Apps")
+    INSTALL(TARGETS ${TOOL_NAME} DESTINATION bin)
+
+    IF(${ARGC} GREATER 1)
+		TARGET_LINK_LIBRARIES(${TOOL_NAME} ${ARGN})
+    ENDIF()
+
+ENDMACRO()
+
+ADD_TOOL(bayer vw_Camera vw_FileIO)
+ADD_TOOL(blend vw_Mosaic)
+
+IF(VW_HAVE_PKG_CARTOGRAPHY)
+    ADD_TOOL(colormap vw_Cartography)
+    ADD_TOOL(georef vw_Cartography)
+    ADD_TOOL(grassfirealpha vw_Cartography)
+    IF(MSVC)
+        # Avoid https://msdn.microsoft.com/query/dev14.query?appId=Dev14IDEF1&l=EN-US&k=k(C1128)&rd=true
+        SET_SOURCE_FILES_PROPERTIES("${CMAKE_CURRENT_SOURCE_DIR}/vw/tools/grassfirealpha.cc" PROPERTIES COMPILE_FLAGS "/bigobj")
+    ENDIF()
+    ADD_TOOL(slopemap vw_Cartography)
+    ADD_TOOL(hillshade vw_Cartography vw_FileIO)
+ENDIF()
+
+# ADD_TOOL(contourgen vw_FileIO) # need cairomm
+ADD_TOOL(correlate vw_Stereo vw_InterestPoint)
+ADD_TOOL(hdr_merge vw_HDR vw_FileIO vw_Camera)
+ADD_TOOL(hdr_tonemap vw_HDR vw_FileIO vw_Camera)
+ADD_TOOL(ipalign vw_InterestPoint)
+ADD_TOOL(ipfind vw_InterestPoint)
+ADD_TOOL(ipmatch vw_InterestPoint)
+ADD_TOOL(learnpca vw_InterestPoint)
+ADD_TOOL(print_exif vw_Camera vw_FileIO)
+
+
+
+IF(VW_HAVE_PKG_CARTOGRAPHY)
+    SET(HELPER_CPP)
+    
+    
+    FOREACH(PIXEL_TYPE PixelGrayA PixelRGBA)
+        FOREACH(CHANNEL_TYPE uint8 int16 uint16 float32)
+            SET(SOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/image2helper_${PIXEL_TYPE}_${CHANNEL_TYPE}.cpp")
+            FILE(WRITE ${SOURCE_FILE} "#include <vw/tools/image2qtree_help.cc>")
+            SET_PROPERTY(SOURCE "${SOURCE_FILE}" APPEND PROPERTY COMPILE_DEFINITIONS PIXEL_TYPE=${PIXEL_TYPE} CHANNEL_TYPE=${CHANNEL_TYPE})
+
+            LIST(APPEND HELPER_CPP ${SOURCE_FILE})
+        ENDFOREACH()
+    ENDFOREACH()
+
+    ADD_LIBRARY(vw_image2qtree_helper ${HELPER_CPP})
+
+    ADD_TOOL(image2toast vw_Cartography vw_Mosaic vw_image2qtree_helper)
+    ADD_TOOL(image2qtree vw_Cartography vw_Mosaic vw_image2qtree_helper)
+ENDIF()
