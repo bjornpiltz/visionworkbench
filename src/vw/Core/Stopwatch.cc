@@ -22,6 +22,7 @@
 // Time
 #ifdef WIN32
 #include <Windows.h>
+#include <vw/Core/Exception.h>
 #else // For Linux
 #include <sys/time.h>
 #endif

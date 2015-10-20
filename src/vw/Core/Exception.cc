@@ -35,7 +35,7 @@ namespace {
   /// which case it prints the message and calls abort().
   static class DefaultExceptionHandler : public vw::ExceptionHandler {
   public:
-    virtual void handle( vw::Exception const& e ) const VW_NORETURN {
+      VW_NORETURN_DECL virtual void handle( vw::Exception const& e ) const VW_NORETURN {
 #if defined(VW_ENABLE_EXCEPTIONS) && (VW_ENABLE_EXCEPTIONS==1)
       e.default_throw();
 #else

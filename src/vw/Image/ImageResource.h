@@ -131,6 +131,7 @@ namespace vw {
       /// Fetch this ImageResource's nodata value
       virtual double nodata_read() const {
         vw_throw(NoImplErr() << "This ImageResource does not support nodata_read().");
+        return 0.0;
       }
 
       /// Return a pointer to the data in the same format as format(). This
@@ -155,6 +156,7 @@ namespace vw {
       /// Gets the preferred block size/alignment for partial writes.
       virtual Vector2i block_write_size() const {
         vw_throw(NoImplErr() << "This ImageResource does not support block writes");
+        return Vector2i();
       }
 
       /// Sets the preferred block size/alignment for partial writes.

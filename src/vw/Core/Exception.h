@@ -256,7 +256,7 @@ namespace vw {
   /// can subclass to install an alternative exception handler.
   class ExceptionHandler {
   public:
-    virtual void handle( Exception const& e ) const VW_NORETURN = 0;
+    VW_NORETURN_DECL virtual void handle( Exception const& e ) const VW_NORETURN = 0;
     virtual ~ExceptionHandler() VW_NOTHROW {}
   };
 
@@ -272,7 +272,7 @@ namespace vw {
   /// Throws an exception via the Vision Workbench error
   /// handling mechanism, which may not actually involvle
   /// throwing an exception in the usual C++ sense.
-  void vw_throw( Exception const& e ) VW_NORETURN;
+  VW_NORETURN_DECL void vw_throw( Exception const& e ) VW_NORETURN;
 
 } // namespace vw
 

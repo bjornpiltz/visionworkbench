@@ -289,19 +289,19 @@ TEST( PixelMath, ArgArgHypotFunctor ) {
   ToyType<double> x(3), y(4);
   ASSERT_TRUE( is_of_type<ToyType<double> >( vw::math::ArgArgHypotFunctor()(x,y) ) );
   vw::math::ArgArgHypotFunctor f;  // Pulled out to workaround gcc 3.2 bug
-  EXPECT_NEAR( f(x,y)[0], hypot(x[0],y[0]), 1e-8 );
+  EXPECT_NEAR( f(x,y)[0], hypot<double>(x[0], y[0]), 1e-8 );
 }
 
 TEST( PixelMath, ArgValHypotFunctor ) {
   ToyType<double> x(3), y(4);
   ASSERT_TRUE( is_of_type<ToyType<double> >( vw::math::ArgValHypotFunctor<ToyType<double> >(y)(x) ) );
-  EXPECT_NEAR( vw::math::ArgValHypotFunctor<ToyType<double> >(y)(x)[0], hypot(x[0],y[0]), 1e-8 );
+  EXPECT_NEAR( vw::math::ArgValHypotFunctor<ToyType<double> >(y)(x)[0], hypot<double>(x[0],y[0]), 1e-8 );
 }
 
 TEST( PixelMath, ValArgHypotFunctor ) {
   ToyType<double> x(3), y(4);
   ASSERT_TRUE( ( boost::is_same< ToyType<double>, boost::result_of<vw::math::ValArgHypotFunctor<ToyType<double> >(ToyType<double>)>::type >::value ) );
   ASSERT_TRUE( is_of_type<ToyType<double> >( vw::math::ValArgHypotFunctor<ToyType<double> >(x)(y) ) );
-  EXPECT_NEAR( vw::math::ValArgHypotFunctor<ToyType<double> >(x)(y)[0], hypot(x[0],y[0]), 1e-8 );
+  EXPECT_NEAR( vw::math::ValArgHypotFunctor<ToyType<double> >(x)(y)[0], hypot<double>(x[0],y[0]), 1e-8 );
 }
 

@@ -37,6 +37,10 @@
 #define VW_NORETURN
 #endif
 
+#ifdef _MSC_VER
+#define VW_NORETURN_DECL __declspec(noreturn)
+#endif
+
 #if defined(VW_COMPILER_HAS_ATTRIBUTE_WARN_UNUSED_RESULT) && (VW_COMPILER_HAS_ATTRIBUTE_WARN_UNUSED_RESULT==1)
 #define VW_WARN_UNUSED __attribute__((warn_unused_result))
 #else

@@ -114,7 +114,7 @@ void Cache::CacheLine<GeneratorT>::release() {
 template <class GeneratorT>
 bool Cache::CacheLine<GeneratorT>::valid() {
   Mutex::WriteLock line_lock(m_mutex);
-  return m_value;
+  return m_value.get()!=nullptr;
 }
 
 template <class GeneratorT>
@@ -153,7 +153,7 @@ typename Cache::Handle<GeneratorT>::value_type const& Cache::Handle<GeneratorT>:
 
 // TODO: Can we delete this?
 template <class GeneratorT>
-Cache::Handle<GeneratorT>::operator boost::shared_ptr<value_type>() const {
+Cache::Handle<GeneratorT>::operator boost::shared_ptr<typename Cache::Handle<GeneratorT>::value_type>() const {
   VW_ASSERT( m_line_ptr, NullPtrErr() << "Invalid cache handle!" );
   m_is_locked = true;
   return m_line_ptr->value();

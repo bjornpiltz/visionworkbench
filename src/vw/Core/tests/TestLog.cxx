@@ -25,7 +25,12 @@
 
 #include <stddef.h>                     // for size_t
 #include <stdlib.h>                     // for exit
+#ifndef _MSC_VER
 #include <unistd.h>                     // for sleep
+#else
+#include <windows.h>
+#define sleep(s) ::Sleep(s*1000)
+#endif
 #include <iostream>                     // for ostringstream, operator<<, etc
 #include <map>                          // for _Rb_tree_const_iterator, etc
 #include <sstream>
