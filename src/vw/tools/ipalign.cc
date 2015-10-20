@@ -90,7 +90,11 @@ void write_point_image(std::string out_file_name,
     // Draw a red line from the point outward along the orientation
     for (int r=0; r<(int)(8*(*pt).scale); ++r){
       int i = (int)(0.5 + (*pt).x + r*cos((*pt).orientation));
+      if (i<0 || i>=viz.cols())
+          continue;
       int j = (int)(0.5 + (*pt).y + r*sin((*pt).orientation));
+      if (j<0 || j>=viz.rows())
+          continue;
       // red, green, blue
       viz(i,j) = PixelRGB<uint8>(255, 0, 0);
     }
